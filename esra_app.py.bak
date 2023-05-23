@@ -1,0 +1,97 @@
+#!/usr/bin/python3.6
+
+__author__ = 'rumi'
+
+import sys, argparse, datetime
+sys.path.append('/usr/lib64/python3.6/appassurance')
+from storetodb import kpitrack, dbiface
+from db import Database
+
+def main():
+
+    Database.initialize()
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-s', '--svctag', required=True)
+    parser.add_argument('-t', '--total', default=0)
+    parser.add_argument('-e', '--export', default=0)
+
+
+    parsed = parser.parse_args()
+    mytags = parsed.svctag.split(",")
+    totalin = 0
+    totalout= 0
+    perfresult = []
+    perfresultcsv = []
+    checkresult = []
+    remark = []
+
+    for tag in mytags:
+
+        ifacelist = dbiface.querysvctag(tag)
+        inrate = 0
+        outrate = 0
+        for i in ifacelist:
+
+            try:
+                fetchkpi = kpitrack.querykpival(i.dev_addr + '_' + i.ifname)
+                #print(fetchkpi.kpigroup)
+                result = fetchkpi.result
+            except Exception as E:
+                result = {}
+
+            if result == None:
+                result = {}
+            if 'inrate' in result:
+                inrate = inrate + int(result['inrate'])
+            if 'outrate' in result:
+                outrate = outrate + int(result['outrate'])
+
+        totalin = totalin + inrate
+        totalout = totalout + outrate
+
+        # checkin = trend.check(inrate, 'In_' + tag)
+       # checkout = trend.check(outrate, 'Out_' + tag)
+       # checkresult.extend((checkin,checkout))
+
+       # if not (checkin == 0 and checkout == 0):
+       #     remark.append("{}, ".format(tag))
+
+        perfresult.append('{}={};'.format('In-'+ tag, inrate))
+        perfresult.append('{}={};'.format('Out_'+ tag, outrate))
+        perfresultcsv.append(f'{tag}, {int(inrate)}, {int(outrate)}')
+
+
+        if int(parsed.export) == 1:
+            for i in perfresultcsv:
+                with open(f'/home/uidata/{tag}/{tag}-{datetime.datetime.now().strftime("%d%m%y-%H%M%S")}.csv', "a") as myfile:
+                    myfile.write(f'{datetime.datetime.now().strftime("%d%m%y-%H%M")}, {i}\n')
+
+    if int(parsed.total) == 1:
+        perfresult.append('{}={};'.format('In_Total', totalin))
+        perfresult.append('{}={};'.format('Out_Total', totalout))
+
+
+    if all(i == 0 for i in checkresult):
+        exitkode = 0
+        print ('Utilization Trend ' + ' | ' + ' '.join(perfresult))
+        sys.exit(exitkode)
+
+    elif 2 in checkresult:
+        exitkode = 2
+        print ('CRITICAL - Abnormal utilization trend: ' + ' _&&_ '.join(remark) + ' | ' + ' '.join(perfresult))
+        sys.exit(exitkode)
+
+    elif 1 in checkresult:
+        exitkode = 1
+        print('WARNING - Abnormal utilization trend' + ' _&&_ '.join(remark) + ' | ' + ' '.join(perfresult))
+        sys.exit(exitkode)
+
+    else:
+        exitkode = 3
+        print('UNKNOWN ')
+        sys.exit(exitkode)
+
+
+if __name__ == "__main__":
+    main()
