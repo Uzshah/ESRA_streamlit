@@ -2,3 +2,4 @@ torch
 streamlit
 numpy
 pillow
+opencv-python
