@@ -1,4 +1,4 @@
 torch
-stremlit
+streamlit
 numpy
 pillow
