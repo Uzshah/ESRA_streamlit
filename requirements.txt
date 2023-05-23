@@ -1,7 +1,1 @@
-torch
-streamlit
-numpy
-pillow
 opencv-python
-opencv-contrib-python
-openai
